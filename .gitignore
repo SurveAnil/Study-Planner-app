@@ -1,0 +1,29 @@
+# Backend ignores
+backend/habit_tracker.db
+backend/habit_tracker.db-journal
+backend/__pycache__/
+backend/.env
+backend/venv/
+backend/.venv/
+
+# Flutter ignores
+habit_tracker_app/.dart_tool/
+habit_tracker_app/.flutter-plugins
+habit_tracker_app/.flutter-plugins-dependencies
+habit_tracker_app/.metadata
+habit_tracker_app/.packages
+habit_tracker_app/build/
+habit_tracker_app/ios/Flutter/Generated.xcconfig
+habit_tracker_app/ios/Flutter/flutter_export_environment.sh
+habit_tracker_app/windows/flutter/generated_config.cmake
+
+# IDE ignores
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS ignores
+.DS_Store
+Thumbs.db
