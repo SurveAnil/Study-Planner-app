@@ -7,6 +7,7 @@ from models.habit import Habit
 from models.daily_log import DailyLog
 from services.habit_service import HabitService
 from services.streak_service import StreakService
+from services.badge_service import BadgeService
 from pydantic import BaseModel, Field
 from datetime import date
 from typing import Annotated, List, Optional, cast, Literal
@@ -192,6 +193,13 @@ def mark_done(habit_id: int, log: LogCreate, db: Annotated[Session, Depends(get_
         # 3. Create the log entry
         service = HabitService(db)
         db_log = service.mark_habit_done(habit_id, log.log_date, log.notes)
+
+        # Trigger badge evaluation after successful new log
+        try:
+            badge_service = BadgeService(db)
+            badge_service.check_and_award_badges(habit.user_id)
+        except Exception as badge_err:
+            logger.warning(f"Badge check failed (non-critical): {badge_err}")
 
         return LogResponse(
             id=db_log.id,

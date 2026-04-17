@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/habit.dart';
 import '../models/user.dart';
 import '../models/user_progress.dart';
+import '../models/badge_model.dart';
 
 class ApiService {
   final String baseUrl = 'https://habit-tracker-api-7w4e.onrender.com/api';
@@ -163,6 +164,37 @@ class ApiService {
       return UserProgress.fromJson(decoded as Map<String, dynamic>);
     } else {
       throw Exception('Failed to fetch progress: ${response.statusCode}');
+    }
+  }
+
+  // ── Badges ────────────────────────────────────────────────────
+
+  /// Fetch all earned badges for the user.
+  Future<BadgeListResponse> getBadges(String firebaseUid) async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/users/$firebaseUid/badges'))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return BadgeListResponse.fromJson(
+          json.decode(response.body) as Map<String, dynamic>);
+    } else {
+      throw Exception('Failed to fetch badges: ${response.statusCode}');
+    }
+  }
+
+  /// Trigger badge evaluation — call after marking a habit done.
+  /// Returns newly earned badges (may be empty).
+  Future<CheckBadgesResponse> checkAndAwardBadges(String firebaseUid) async {
+    final response = await http
+        .post(Uri.parse('$baseUrl/users/$firebaseUid/badges/check'))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return CheckBadgesResponse.fromJson(
+          json.decode(response.body) as Map<String, dynamic>);
+    } else {
+      throw Exception('Failed to check badges: ${response.statusCode}');
     }
   }
 }

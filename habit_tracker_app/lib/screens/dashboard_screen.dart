@@ -5,8 +5,10 @@ import '../models/habit.dart';
 import '../models/user_progress.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import 'add_habit_screen.dart';
+import 'badges_screen.dart';
 import 'habit_detail_screen.dart';
 import 'progress_screen.dart';
 import 'login_screen.dart';
@@ -29,6 +31,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _currentIndex = 0;
   final Set<int> _markedTodayIds = {};
   final Set<int> _atRiskHabitIds = {};
+  bool _riskBannerShown = false;
   late AnimationController _pulseController;
 
   @override
@@ -83,6 +86,11 @@ class _DashboardScreenState extends State<DashboardScreen>
             _atRiskHabitIds.add(risk.habitId);
           }
         });
+        // Show streak risk banner once per session
+        if (!_riskBannerShown && progress.streakRisks.isNotEmpty) {
+          _riskBannerShown = true;
+          NotificationService.showStreakRiskBanner(context, progress.streakRisks);
+        }
       }
     } catch (_) {
       // Non-critical — silently ignore if progress API fails
@@ -112,6 +120,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             duration: const Duration(seconds: 2),
           ),
         );
+        // Check for newly unlocked badges (non-blocking)
+        _checkBadgesAfterLog();
       }
     } catch (e) {
       // Rollback on failure
@@ -130,6 +140,21 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  /// Check for newly earned badges and show toast if any were unlocked.
+  Future<void> _checkBadgesAfterLog() async {
+    try {
+      final result = await _apiService.checkAndAwardBadges(widget.user.firebaseUid);
+      if (mounted && result.newlyEarned.isNotEmpty) {
+        for (final badge in result.newlyEarned) {
+          NotificationService.showBadgeUnlock(context, badge);
+          await Future.delayed(const Duration(milliseconds: 600));
+        }
+      }
+    } catch (_) {
+      // Non-critical
+    }
+  }
+
   Future<void> _signOut() async {
     await _authService.signOut();
     if (mounted) {
@@ -143,7 +168,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _currentIndex == 0 ? _buildDashboard() : ProgressScreen(user: widget.user),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildDashboard(),
+          ProgressScreen(user: widget.user),
+          BadgesScreen(user: widget.user),
+        ],
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -167,6 +199,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           BottomNavigationBarItem(
             icon: Icon(Icons.insights_rounded),
             label: 'Progress',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.emoji_events_rounded),
+            label: 'Badges',
           ),
         ],
       ),
