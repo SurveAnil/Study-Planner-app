@@ -5,7 +5,7 @@ import '../models/user.dart';
 
 class ApiService {
   final String baseUrl =
-      'https://habit-tracker-api-7w4e.onrender.com/api';
+      'https://habit-tracker-api-7w4e.onrender.com/api'; // Adjust for your backend URL
 
   Future<List<Habit>> getHabits(int userId) async {
     final response = await http
@@ -19,25 +19,24 @@ class ApiService {
     }
   }
 
-  Future<Habit> createHabit(
-    int userId,
-    String title,
-    String frequency,
-  ) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/habits/'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'user_id': userId,
-        'title': title,
-        'frequency': frequency,
-      }),
-    ).timeout(const Duration(seconds: 10));
-    
+  Future<Habit> createHabit(int userId, String title, String frequency) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/habits/'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'user_id': userId,
+            'title': title,
+            'frequency': frequency,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
     if (response.statusCode == 200) {
       return Habit.fromJson(json.decode(response.body));
     } else {
-      final error = json.decode(response.body)['detail'] ?? 'Failed to create habit';
+      final error =
+          json.decode(response.body)['detail'] ?? 'Failed to create habit';
       throw Exception(error);
     }
   }
@@ -47,15 +46,17 @@ class ApiService {
     DateTime logDate,
     String? notes,
   ) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/habits/$habitId/log'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'log_date': logDate.toIso8601String(),
-        'notes': notes,
-      }),
-    ).timeout(const Duration(seconds: 10));
-    
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/habits/$habitId/log'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'log_date': logDate.toIso8601String(),
+            'notes': notes,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
     if (response.statusCode != 200) {
       throw Exception('Failed to log habit');
     }
@@ -66,14 +67,16 @@ class ApiService {
     String? title,
     String? frequency,
   }) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/habits/$habitId'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        if (title != null) 'title': title,
-        if (frequency != null) 'frequency': frequency,
-      }),
-    ).timeout(const Duration(seconds: 10));
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/habits/$habitId'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            if (title != null) 'title': title,
+            if (frequency != null) 'frequency': frequency,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Failed to update habit');
     }
