@@ -1,5 +1,6 @@
 /// Achievement badge earned by the user.
-class Badge {
+/// Named HabitBadge to avoid conflict with Flutter's material Badge widget.
+class HabitBadge {
   final int id;
   final String badgeType;
   final String badgeName;
@@ -7,7 +8,7 @@ class Badge {
   final String description;
   final DateTime? earnedAt;
 
-  Badge({
+  HabitBadge({
     required this.id,
     required this.badgeType,
     required this.badgeName,
@@ -16,8 +17,8 @@ class Badge {
     this.earnedAt,
   });
 
-  factory Badge.fromJson(Map<String, dynamic> json) {
-    return Badge(
+  factory HabitBadge.fromJson(Map<String, dynamic> json) {
+    return HabitBadge(
       id: json['id'],
       badgeType: json['badge_type'],
       badgeName: json['badge_name'],
@@ -32,7 +33,7 @@ class Badge {
 
 /// Response from GET /api/users/{uid}/badges
 class BadgeListResponse {
-  final List<Badge> badges;
+  final List<HabitBadge> badges;
   final int total;
 
   BadgeListResponse({required this.badges, required this.total});
@@ -41,7 +42,7 @@ class BadgeListResponse {
     return BadgeListResponse(
       total: json['total'] ?? 0,
       badges: (json['badges'] as List<dynamic>?)
-              ?.map((b) => Badge.fromJson(b as Map<String, dynamic>))
+              ?.map((b) => HabitBadge.fromJson(b as Map<String, dynamic>))
               .toList() ??
           [],
     );
@@ -50,7 +51,7 @@ class BadgeListResponse {
 
 /// Response from POST /api/users/{uid}/badges/check
 class CheckBadgesResponse {
-  final List<Badge> newlyEarned;
+  final List<HabitBadge> newlyEarned;
   final int totalBadges;
   final String message;
 
@@ -65,7 +66,7 @@ class CheckBadgesResponse {
       totalBadges: json['total_badges'] ?? 0,
       message: json['message'] ?? '',
       newlyEarned: (json['newly_earned'] as List<dynamic>?)
-              ?.map((b) => Badge.fromJson(b as Map<String, dynamic>))
+              ?.map((b) => HabitBadge.fromJson(b as Map<String, dynamic>))
               .toList() ??
           [],
     );

@@ -16,7 +16,6 @@ class NotificationService {
   // ── Browser Push Notifications (Real OS-level) ────────────────
 
   /// Request permission for browser push notifications.
-  /// Should be called once after user logs in.
   static Future<bool> requestPushPermission() async {
     if (!kIsWeb) return false;
     try {
@@ -43,7 +42,6 @@ class NotificationService {
   }
 
   /// Show a real OS-level browser push notification.
-  /// This appears even when the user is in another tab.
   static void sendPushNotification(String title, String body) {
     if (!kIsWeb) return;
     try {
@@ -70,13 +68,13 @@ class NotificationService {
   static void sendStreakRiskPush(String habitTitle, int daysMissed) {
     sendPushNotification(
       '⚠️ Streak at Risk!',
-      '"$habitTitle" missed for $daysMissed days. Log it now to save your streak!',
+      '"$habitTitle" missed for $daysMissed days. Log it now!',
     );
   }
 
-  // ── In-App Badge Unlock Toast (Overlay) ──────────────────────
+  // ── In-App Badge Unlock Toast ────────────────────────────────
 
-  static void showBadgeUnlock(BuildContext context, Badge badge) {
+  static void showBadgeUnlock(BuildContext context, HabitBadge badge) {
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -89,8 +87,7 @@ class NotificationService {
     Timer(const Duration(seconds: 4), () {
       if (entry.mounted) entry.remove();
     });
-
-    // Also send real push notification
+    // Also fire a real OS-level push
     sendBadgePush(badge.badgeName, badge.badgeEmoji);
   }
 
@@ -102,8 +99,6 @@ class NotificationService {
   ) {
     if (risks.isEmpty) return;
     final most = risks.first;
-
-    // Send real push notification
     sendStreakRiskPush(most.title, most.daysMissed);
 
     ScaffoldMessenger.of(context).showMaterialBanner(
@@ -138,7 +133,7 @@ class NotificationService {
   }
 
   /// Simple snackbar for newly earned badges.
-  static void showBadgeSnackbar(BuildContext context, List<Badge> badges) {
+  static void showBadgeSnackbar(BuildContext context, List<HabitBadge> badges) {
     if (badges.isEmpty) return;
     final badge = badges.first;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -177,7 +172,7 @@ class NotificationService {
 // ── Badge Unlock Overlay Widget ────────────────────────────────
 
 class _BadgeUnlockToast extends StatefulWidget {
-  final Badge badge;
+  final HabitBadge badge;
   final VoidCallback onDismiss;
   const _BadgeUnlockToast({required this.badge, required this.onDismiss});
 

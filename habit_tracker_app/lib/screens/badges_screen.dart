@@ -16,7 +16,7 @@ class BadgesScreen extends StatefulWidget {
 class _BadgesScreenState extends State<BadgesScreen>
     with AutomaticKeepAliveClientMixin {
   final ApiService _api = ApiService();
-  List<Badge> _badges = [];
+  List<HabitBadge> _badges = [];
   List<BadgeProgress> _badgeProgress = [];
   bool _isLoading = true;
   String? _error;
@@ -65,7 +65,8 @@ class _BadgesScreenState extends State<BadgesScreen>
     });
     try {
       final badgeResult = await _api.getBadges(widget.user.firebaseUid);
-      final progressResult = await _api.getUserProgress(widget.user.firebaseUid);
+      final progressResult =
+          await _api.getUserProgress(widget.user.firebaseUid);
       if (mounted) {
         setState(() {
           _badges = badgeResult.badges;
@@ -86,7 +87,7 @@ class _BadgesScreenState extends State<BadgesScreen>
   bool _isEarned(String badgeType) =>
       _badges.any((b) => b.badgeType == badgeType);
 
-  Badge? _getEarned(String badgeType) {
+  HabitBadge? _getEarned(String badgeType) {
     try {
       return _badges.firstWhere((b) => b.badgeType == badgeType);
     } catch (_) {
@@ -110,8 +111,6 @@ class _BadgesScreenState extends State<BadgesScreen>
   Widget _buildContent() {
     final earned = _badges.length;
     final total = _allBadges.length;
-
-    // Only show progress for unearned badges
     final unearned = _badgeProgress.where((p) => !p.isEarned).toList();
 
     return RefreshIndicator(
@@ -129,17 +128,17 @@ class _BadgesScreenState extends State<BadgesScreen>
                 color: AppTheme.textPrimary),
           ),
           const SizedBox(height: 4),
-          Text(
+          const Text(
             'Unlock badges by building consistent habits',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 20),
 
-          // Progress bar
+          // Overall progress bar
           _buildProgressBar(earned, total),
           const SizedBox(height: 24),
 
-          // ── Next Goal Progress Section (only unearned) ────────────
+          // ── Next Goals section (unearned only) ────────────────
           if (unearned.isNotEmpty) ...[
             _buildSectionHeader('Your Next Goals', Icons.rocket_launch_rounded),
             const SizedBox(height: 12),
@@ -147,7 +146,7 @@ class _BadgesScreenState extends State<BadgesScreen>
             const SizedBox(height: 24),
           ],
 
-          // Badge grid
+          // ── All Badges grid ────────────────────────────────────
           _buildSectionHeader('All Badges', Icons.emoji_events_rounded),
           const SizedBox(height: 12),
           GridView.builder(
@@ -202,8 +201,7 @@ class _BadgesScreenState extends State<BadgesScreen>
         children: [
           Row(
             children: [
-              Text(progress.badgeEmoji,
-                  style: const TextStyle(fontSize: 22)),
+              Text(progress.badgeEmoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -225,7 +223,8 @@ class _BadgesScreenState extends State<BadgesScreen>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppTheme.primary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(8),
@@ -284,7 +283,7 @@ class _BadgesScreenState extends State<BadgesScreen>
                 ),
               ),
               Text(
-                '${((earned / total) * 100).round()}%',
+                '${total > 0 ? ((earned / total) * 100).round() : 0}%',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -310,7 +309,7 @@ class _BadgesScreenState extends State<BadgesScreen>
   }
 
   Widget _buildBadgeCard(
-      Map<String, String> def, bool isEarned, Badge? badge) {
+      Map<String, String> def, bool isEarned, HabitBadge? badge) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(
@@ -339,7 +338,6 @@ class _BadgesScreenState extends State<BadgesScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Badge icon
             Container(
               width: 64,
               height: 64,
@@ -352,23 +350,13 @@ class _BadgesScreenState extends State<BadgesScreen>
                 child: isEarned
                     ? Text(def['emoji']!,
                         style: const TextStyle(fontSize: 30))
-                    : Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Text(def['emoji']!,
-                              style: const TextStyle(
-                                  fontSize: 30, color: Colors.transparent)),
-                          const Icon(Icons.lock_rounded,
-                              color: AppTheme.textMuted, size: 26),
-                        ],
-                      ),
+                    : const Icon(Icons.lock_rounded,
+                        color: AppTheme.textMuted, size: 26),
               ),
             ),
             const SizedBox(height: 14),
-
-            // Badge name
             Text(
-              isEarned ? def['name']! : def['name']!,
+              def['name']!,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -377,8 +365,6 @@ class _BadgesScreenState extends State<BadgesScreen>
               ),
             ),
             const SizedBox(height: 6),
-
-            // Description
             Text(
               def['description']!,
               textAlign: TextAlign.center,
@@ -386,16 +372,12 @@ class _BadgesScreenState extends State<BadgesScreen>
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
-                color: isEarned
-                    ? AppTheme.textSecondary
-                    : AppTheme.textMuted,
+                color: isEarned ? AppTheme.textSecondary : AppTheme.textMuted,
                 height: 1.4,
               ),
             ),
             const SizedBox(height: 8),
-
-            // Earned date or locked indicator
-            if (isEarned && badge?.earnedAt != null)
+            if (isEarned)
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -403,7 +385,7 @@ class _BadgesScreenState extends State<BadgesScreen>
                   color: AppTheme.success.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
+                child: const Text(
                   '✓ Earned',
                   style: TextStyle(
                       fontSize: 10,
@@ -411,7 +393,7 @@ class _BadgesScreenState extends State<BadgesScreen>
                       color: AppTheme.success),
                 ),
               )
-            else if (!isEarned)
+            else
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -419,7 +401,7 @@ class _BadgesScreenState extends State<BadgesScreen>
                   color: AppTheme.textMuted.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
+                child: const Text(
                   '🔒 Locked',
                   style: TextStyle(
                       fontSize: 10,
