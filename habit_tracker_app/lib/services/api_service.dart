@@ -92,28 +92,47 @@ class ApiService {
   }
 
   Future<User?> getUser(String firebaseUid) async {
-    final response = await http.get(Uri.parse('$baseUrl/users/$firebaseUid'));
-    if (response.statusCode == 200) {
-      return User.fromJson(json.decode(response.body));
-    } else {
-      return null;
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/users/$firebaseUid'))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded == null) return null; // backend returned null body
+        return User.fromJson(decoded as Map<String, dynamic>);
+      } else if (response.statusCode == 404) {
+        return null; // user does not exist yet
+      } else {
+        throw Exception('Failed to fetch user: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
     }
   }
 
   Future<User> createUser(String name, String email, String firebaseUid) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/users/'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'name': name,
-        'email': email,
-        'firebase_uid': firebaseUid,
-      }),
-    );
-    if (response.statusCode == 200) {
-      return User.fromJson(json.decode(response.body));
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/users/'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'name': name,
+            'email': email,
+            'firebase_uid': firebaseUid,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final decoded = json.decode(response.body);
+      if (decoded == null) {
+        throw Exception('Backend returned empty response when creating user');
+      }
+      return User.fromJson(decoded as Map<String, dynamic>);
     } else {
-      throw Exception('Failed to create user');
+      final body = response.body.isNotEmpty ? response.body : '{}';
+      final detail = json.decode(body)['detail'] ?? 'Failed to create user';
+      throw Exception(detail);
     }
   }
 }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database.db_connection import get_db
 from models.user import User
@@ -21,4 +21,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/users/{firebase_uid}")
 def get_user(firebase_uid: str, db: Session = Depends(get_db)):
-    return db.query(User).filter(User.firebase_uid == firebase_uid).first()
+    db_user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user
