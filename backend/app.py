@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.db_connection import engine, Base
+from models import user, habit, daily_log  # Explicitly import models for registration
 from routes import habit_routes, user_routes
 
 Base.metadata.create_all(bind=engine)
