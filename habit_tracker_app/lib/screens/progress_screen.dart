@@ -85,6 +85,18 @@ class _ProgressScreenState extends State<ProgressScreen>
           ),
           const SizedBox(height: 24),
 
+          // ── AI Insight Card ──────────────────────────────────
+          if (_progress!.aiInsight.isNotEmpty) ...[
+            _buildAiInsightCard(),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Streak Risk Warnings ─────────────────────────────
+          if (_progress!.streakRisks.isNotEmpty) ...[
+            _buildStreakRiskSection(),
+            const SizedBox(height: 20),
+          ],
+
           // Summary cards
           _buildSummaryRow(),
           const SizedBox(height: 24),
@@ -116,6 +128,141 @@ class _ProgressScreenState extends State<ProgressScreen>
           const SizedBox(height: 12),
           ..._progress!.habits.map((h) => _buildHabitBreakdownCard(h)),
           const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  // ── AI Insight Card ──────────────────────────────────────────
+
+  Widget _buildAiInsightCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6C63FF), Color(0xFF896BFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withOpacity(0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.lightbulb_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your Insight Today',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _progress!.aiInsight,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.9),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Streak Risk Warning Section ────────────────────────────────
+
+  Widget _buildStreakRiskSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('⚠️ Streaks at Risk', Icons.warning_amber_rounded),
+        const SizedBox(height: 10),
+        ..._progress!.streakRisks.map((risk) => _buildStreakRiskCard(risk)),
+      ],
+    );
+  }
+
+  Widget _buildStreakRiskCard(StreakRisk risk) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.danger.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.danger.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppTheme.danger.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text(
+                '${risk.daysMissed}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.danger,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  risk.title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Missed for ${risk.daysMissed} day(s) — your streak is at risk!',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.danger.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppTheme.danger, size: 20),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/habit.dart';
+import '../models/user_progress.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -27,6 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   String? _error;
   int _currentIndex = 0;
   final Set<int> _markedTodayIds = {};
+  final Set<int> _atRiskHabitIds = {};
   late AnimationController _pulseController;
 
   @override
@@ -58,6 +60,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           _isLoading = false;
         });
       }
+      // Load streak risks in background (non-blocking)
+      _loadStreakRisks();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -65,6 +69,23 @@ class _DashboardScreenState extends State<DashboardScreen>
           _error = 'Failed to load habits. Pull to retry.';
         });
       }
+    }
+  }
+
+  /// Fetch streak risk data from the progress API to highlight at-risk habits.
+  Future<void> _loadStreakRisks() async {
+    try {
+      final progress = await _apiService.getUserProgress(widget.user.firebaseUid);
+      if (mounted) {
+        setState(() {
+          _atRiskHabitIds.clear();
+          for (final risk in progress.streakRisks) {
+            _atRiskHabitIds.add(risk.habitId);
+          }
+        });
+      }
+    } catch (_) {
+      // Non-critical — silently ignore if progress API fails
     }
   }
 
@@ -224,6 +245,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildContent() {
     final completedToday = _habits.where((h) => _markedTodayIds.contains(h.id)).length;
 
+    // Sort habits: at-risk first, then by streak descending
+    final sortedHabits = List<Habit>.from(_habits);
+    sortedHabits.sort((a, b) {
+      final aRisk = _atRiskHabitIds.contains(a.id) ? 0 : 1;
+      final bRisk = _atRiskHabitIds.contains(b.id) ? 0 : 1;
+      if (aRisk != bRisk) return aRisk.compareTo(bRisk);
+      return b.currentStreak.compareTo(a.currentStreak);
+    });
+
     return RefreshIndicator(
       onRefresh: _loadHabits,
       color: AppTheme.primary,
@@ -265,8 +295,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           const SizedBox(height: 12),
 
-          // Habit cards
-          ..._habits.map((h) => _buildHabitCard(h)),
+          // Habit cards (at-risk sorted to top)
+          ...sortedHabits.map((h) => _buildHabitCard(h)),
         ],
       ),
     );
@@ -490,6 +520,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                               AppTheme.success.withOpacity(0.15),
                               AppTheme.success,
                             ),
+                          if (_atRiskHabitIds.contains(habit.id)) ...[
+                            const SizedBox(width: 8),
+                            _buildMetaBadge(
+                              '⚠️ Risk',
+                              AppTheme.danger.withOpacity(0.15),
+                              AppTheme.danger,
+                            ),
+                          ],
                         ],
                       ),
                     ],

@@ -7,6 +7,8 @@ Provides aggregated user progress data including:
 - Per-habit streaks and completion percentages
 - Missed habit reminders
 - Consistency scoring
+- AI insight message (personalized feedback)
+- Streak risk warnings
 """
 
 import logging
@@ -17,6 +19,7 @@ from models.user import User
 from models.habit import Habit
 from models.daily_log import DailyLog
 from services.streak_service import StreakService
+from services.insight_service import InsightService
 from pydantic import BaseModel
 from datetime import date, timedelta
 from typing import List, Optional
@@ -46,14 +49,22 @@ class MissedHabitReminder(BaseModel):
     message: str
 
 
+class StreakRisk(BaseModel):
+    habit_id: int
+    title: str
+    days_missed: int
+
+
 class UserProgress(BaseModel):
     total_habits: int
     total_completed_last_30d: int
     completed_today: int
     average_streak: float
     consistency_score: float
+    ai_insight: str
     habits: List[HabitProgress]
     reminders: List[MissedHabitReminder]
+    streak_risks: List[StreakRisk]
 
 
 # ── Routes ───────────────────────────────────────────────────────
@@ -62,7 +73,8 @@ class UserProgress(BaseModel):
 def get_user_progress(firebase_uid: str, db: Session = Depends(get_db)):
     """
     Aggregated progress analytics for a user.
-    Returns streaks, completion rates, consistency scores, and smart reminders.
+    Returns streaks, completion rates, consistency scores, smart reminders,
+    AI insight message, and streak risk warnings.
     """
     try:
         # 1. Find user
@@ -74,6 +86,7 @@ def get_user_progress(firebase_uid: str, db: Session = Depends(get_db)):
         habits = db.query(Habit).filter(Habit.user_id == user.id).all()
 
         streak_service = StreakService(db)
+        insight_service = InsightService(db)
         today = date.today()
         thirty_days_ago = today - timedelta(days=30)
 
@@ -170,14 +183,34 @@ def get_user_progress(firebase_uid: str, db: Session = Depends(get_db)):
         avg_streak = round(total_streak / len(habits), 1) if habits else 0.0
         consistency = round((total_actual_logs / total_possible_logs) * 100, 1) if total_possible_logs > 0 else 0.0
 
+        # ── NEW: AI Insight ──────────────────────────────────────
+        habits_for_insight = [
+            {"title": hp.title, "completion_percentage": hp.completion_percentage}
+            for hp in habit_progress_list
+        ]
+        ai_insight = insight_service.generate_ai_insight(consistency, habits_for_insight)
+
+        # ── NEW: Streak Risk Detection ───────────────────────────
+        risk_infos = insight_service.detect_streak_risks(user.id)
+        streak_risks = [
+            StreakRisk(
+                habit_id=r.habit_id,
+                title=r.title,
+                days_missed=r.days_missed,
+            )
+            for r in risk_infos
+        ]
+
         return UserProgress(
             total_habits=len(habits),
             total_completed_last_30d=total_completed_30d,
             completed_today=completed_today,
             average_streak=avg_streak,
             consistency_score=consistency,
+            ai_insight=ai_insight,
             habits=habit_progress_list,
             reminders=reminders,
+            streak_risks=streak_risks,
         )
 
     except HTTPException:

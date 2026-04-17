@@ -58,6 +58,27 @@ class MissedHabitReminder {
   }
 }
 
+/// Model for a habit whose streak is at risk (2+ days without logging).
+class StreakRisk {
+  final int habitId;
+  final String title;
+  final int daysMissed;
+
+  StreakRisk({
+    required this.habitId,
+    required this.title,
+    required this.daysMissed,
+  });
+
+  factory StreakRisk.fromJson(Map<String, dynamic> json) {
+    return StreakRisk(
+      habitId: json['habit_id'],
+      title: json['title'],
+      daysMissed: json['days_missed'] ?? 0,
+    );
+  }
+}
+
 /// Aggregated user progress data from GET /api/users/{uid}/progress.
 class UserProgress {
   final int totalHabits;
@@ -65,8 +86,10 @@ class UserProgress {
   final int completedToday;
   final double averageStreak;
   final double consistencyScore;
+  final String aiInsight;
   final List<HabitProgress> habits;
   final List<MissedHabitReminder> reminders;
+  final List<StreakRisk> streakRisks;
 
   UserProgress({
     required this.totalHabits,
@@ -74,8 +97,10 @@ class UserProgress {
     required this.completedToday,
     required this.averageStreak,
     required this.consistencyScore,
+    required this.aiInsight,
     required this.habits,
     required this.reminders,
+    required this.streakRisks,
   });
 
   factory UserProgress.fromJson(Map<String, dynamic> json) {
@@ -85,12 +110,17 @@ class UserProgress {
       completedToday: json['completed_today'] ?? 0,
       averageStreak: (json['average_streak'] ?? 0.0).toDouble(),
       consistencyScore: (json['consistency_score'] ?? 0.0).toDouble(),
+      aiInsight: json['ai_insight'] ?? '',
       habits: (json['habits'] as List<dynamic>?)
               ?.map((h) => HabitProgress.fromJson(h as Map<String, dynamic>))
               .toList() ??
           [],
       reminders: (json['reminders'] as List<dynamic>?)
               ?.map((r) => MissedHabitReminder.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
+      streakRisks: (json['streak_risks'] as List<dynamic>?)
+              ?.map((r) => StreakRisk.fromJson(r as Map<String, dynamic>))
               .toList() ??
           [],
     );
