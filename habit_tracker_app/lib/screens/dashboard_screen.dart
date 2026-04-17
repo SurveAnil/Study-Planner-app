@@ -168,9 +168,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _currentIndex == 0
-          ? _buildDashboard()
-          : ProgressScreen(user: widget.user),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildDashboard(),
+          ProgressScreen(user: widget.user),
+          BadgesScreen(user: widget.user),
+        ],
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -196,6 +201,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           BottomNavigationBarItem(
             icon: Icon(Icons.insights_rounded),
             label: 'Progress',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.emoji_events_rounded),
+            label: 'Achievements',
           ),
         ],
       ),
