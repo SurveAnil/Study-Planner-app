@@ -5,6 +5,8 @@ import '../models/user.dart';
 import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -43,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Step 1: Sign in with Google and Firebase
       print('📱 Initiating Google Sign-In...');
       final firebaseUser = await _authService.signInWithGoogle();
-      
+
       if (firebaseUser == null) {
         throw Exception('Failed to authenticate with Google');
       }
@@ -53,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Step 2: Check if user exists in backend
       print('🔍 Checking backend user...');
       User? backendUser = await _apiService.getUser(firebaseUser.uid);
-      
+
       if (backendUser == null) {
         // Step 3: Create user in backend if doesn't exist
         print('👤 Creating new user in backend...');
@@ -81,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Handle authentication errors
       final errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('❌ Sign-in error: $errorMessage');
-      
+
       if (mounted) {
         setState(() {
           _errorMessage = errorMessage;
@@ -93,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Handle unexpected errors
       final errorMessage = 'An unexpected error occurred: $e';
       print('❌ Unexpected error: $errorMessage');
-      
+
       if (mounted) {
         setState(() {
           _errorMessage = errorMessage;
@@ -117,10 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.blue.shade50,
-              Colors.blue.shade100,
-            ],
+            colors: [Colors.blue.shade50, Colors.blue.shade100],
           ),
         ),
         child: Center(
@@ -136,29 +135,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: BoxShape.circle,
                     color: Colors.blue.shade400,
                   ),
-                  child: Icon(
-                    Icons.trending_up,
-                    size: 64,
-                    color: Colors.white,
-                  ),
+                  child: Icon(Icons.trending_up, size: 64, color: Colors.white),
                 ),
                 SizedBox(height: 32),
                 // Title
                 Text(
                   'Habit Tracker',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade800,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade800,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 12),
                 // Subtitle
                 Text(
                   'Build better habits, one day at a time',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 48),
@@ -224,10 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Info Text
                 Text(
                   'Secure authentication powered by Firebase',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   textAlign: TextAlign.center,
                 ),
               ],

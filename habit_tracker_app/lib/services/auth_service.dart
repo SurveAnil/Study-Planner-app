@@ -1,15 +1,40 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb
+        ? '472149507943-i6tuqejohomc2g5u1nh0fqda7re1isdh.apps.googleusercontent.com'
+        : null,
+  );
 
   /// Sign in with Google and Firebase
   /// Returns the Firebase User if successful, null if cancelled or error
   /// Throws an exception with user-friendly error messages for UI error handling
   Future<User?> signInWithGoogle() async {
     try {
+      if (kIsWeb) {
+        // Recommended flow for Web: Use Firebase's dedicated Web popup
+        // This avoids the 'google_sign_in' plugin's web limitations and People API requirements
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        
+        // Optional: you can add more scopes if required
+        // googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
+        
+        final UserCredential userCredential = await _auth.signInWithPopup(googleProvider);
+        
+        final User? user = userCredential.user;
+        if (user == null) {
+          throw Exception('Failed to create Firebase user');
+        }
+        
+        print('✅ Successfully signed in (Web): ${user.email}');
+        return user;
+      }
+
+      // Existing mobile/desktop flow
       // Trigger the Google Sign-In popup
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       

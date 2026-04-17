@@ -5,7 +5,7 @@ import '../models/user.dart';
 
 class ApiService {
   final String baseUrl =
-      'http://localhost:8000/api'; // Adjust for your backend URL
+      'https://habit-tracker-api-7w4e.onrender.com/api';
 
   Future<List<Habit>> getHabits(int userId) async {
     final response = await http
