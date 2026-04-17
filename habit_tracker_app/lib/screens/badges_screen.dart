@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/badge_model.dart';
 import '../models/user.dart';
+import '../models/user_progress.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
@@ -16,6 +17,7 @@ class _BadgesScreenState extends State<BadgesScreen>
     with AutomaticKeepAliveClientMixin {
   final ApiService _api = ApiService();
   List<Badge> _badges = [];
+  List<BadgeProgress> _badgeProgress = [];
   bool _isLoading = true;
   String? _error;
 
@@ -62,10 +64,12 @@ class _BadgesScreenState extends State<BadgesScreen>
       _error = null;
     });
     try {
-      final result = await _api.getBadges(widget.user.firebaseUid);
+      final badgeResult = await _api.getBadges(widget.user.firebaseUid);
+      final progressResult = await _api.getUserProgress(widget.user.firebaseUid);
       if (mounted) {
         setState(() {
-          _badges = result.badges;
+          _badges = badgeResult.badges;
+          _badgeProgress = progressResult.badgeProgress;
           _isLoading = false;
         });
       }
@@ -107,6 +111,9 @@ class _BadgesScreenState extends State<BadgesScreen>
     final earned = _badges.length;
     final total = _allBadges.length;
 
+    // Only show progress for unearned badges
+    final unearned = _badgeProgress.where((p) => !p.isEarned).toList();
+
     return RefreshIndicator(
       onRefresh: _loadBadges,
       color: AppTheme.primary,
@@ -130,9 +137,19 @@ class _BadgesScreenState extends State<BadgesScreen>
 
           // Progress bar
           _buildProgressBar(earned, total),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
+
+          // ── Next Goal Progress Section (only unearned) ────────────
+          if (unearned.isNotEmpty) ...[
+            _buildSectionHeader('Your Next Goals', Icons.rocket_launch_rounded),
+            const SizedBox(height: 12),
+            ...unearned.map((p) => _buildBadgeProgressCard(p)),
+            const SizedBox(height: 24),
+          ],
 
           // Badge grid
+          _buildSectionHeader('All Badges', Icons.emoji_events_rounded),
+          const SizedBox(height: 12),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -145,12 +162,100 @@ class _BadgesScreenState extends State<BadgesScreen>
             itemCount: _allBadges.length,
             itemBuilder: (context, index) {
               final def = _allBadges[index];
-              final earned = _isEarned(def['type']!);
+              final isEarned = _isEarned(def['type']!);
               final badge = _getEarned(def['type']!);
-              return _buildBadgeCard(def, earned, badge);
+              return _buildBadgeCard(def, isEarned, badge);
             },
           ),
           const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: AppTheme.primary, size: 18),
+        const SizedBox(width: 8),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary)),
+      ],
+    );
+  }
+
+  /// "5/7 days → 🔥 7-Day Streak" motivational progress card.
+  Widget _buildBadgeProgressCard(BadgeProgress progress) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(progress.badgeEmoji,
+                  style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      progress.badgeName,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary),
+                    ),
+                    Text(
+                      progress.hint,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${progress.currentValue}/${progress.targetValue}',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primaryLight),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (progress.percentage / 100).clamp(0.0, 1.0),
+              backgroundColor: AppTheme.surfaceLight,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress.percentage >= 70
+                    ? AppTheme.success
+                    : progress.percentage >= 40
+                        ? AppTheme.primary
+                        : AppTheme.warning,
+              ),
+              minHeight: 6,
+            ),
+          ),
         ],
       ),
     );

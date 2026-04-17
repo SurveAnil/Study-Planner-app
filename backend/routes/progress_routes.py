@@ -20,6 +20,8 @@ from models.habit import Habit
 from models.daily_log import DailyLog
 from services.streak_service import StreakService
 from services.insight_service import InsightService
+from services.badge_service import BadgeService
+from services.notification_db_service import NotificationDbService
 from pydantic import BaseModel
 from datetime import date, timedelta
 from typing import List, Optional
@@ -55,6 +57,17 @@ class StreakRisk(BaseModel):
     days_missed: int
 
 
+class BadgeProgress(BaseModel):
+    badge_type: str
+    badge_name: str
+    badge_emoji: str
+    current_value: int
+    target_value: int
+    percentage: float
+    is_earned: bool
+    hint: str
+
+
 class UserProgress(BaseModel):
     total_habits: int
     total_completed_last_30d: int
@@ -62,9 +75,11 @@ class UserProgress(BaseModel):
     average_streak: float
     consistency_score: float
     ai_insight: str
+    unread_notifications: int
     habits: List[HabitProgress]
     reminders: List[MissedHabitReminder]
     streak_risks: List[StreakRisk]
+    badge_progress: List[BadgeProgress]
 
 
 # ── Routes ───────────────────────────────────────────────────────
@@ -87,6 +102,8 @@ def get_user_progress(firebase_uid: str, db: Session = Depends(get_db)):
 
         streak_service = StreakService(db)
         insight_service = InsightService(db)
+        badge_service = BadgeService(db)
+        notif_svc = NotificationDbService(db)
         today = date.today()
         thirty_days_ago = today - timedelta(days=30)
 
@@ -183,14 +200,14 @@ def get_user_progress(firebase_uid: str, db: Session = Depends(get_db)):
         avg_streak = round(total_streak / len(habits), 1) if habits else 0.0
         consistency = round((total_actual_logs / total_possible_logs) * 100, 1) if total_possible_logs > 0 else 0.0
 
-        # ── NEW: AI Insight ──────────────────────────────────────
+        # ── AI Insight ───────────────────────────────────────────
         habits_for_insight = [
             {"title": hp.title, "completion_percentage": hp.completion_percentage}
             for hp in habit_progress_list
         ]
         ai_insight = insight_service.generate_ai_insight(consistency, habits_for_insight)
 
-        # ── NEW: Streak Risk Detection ───────────────────────────
+        # ── Streak Risk Detection ────────────────────────────────
         risk_infos = insight_service.detect_streak_risks(user.id)
         streak_risks = [
             StreakRisk(
@@ -201,6 +218,29 @@ def get_user_progress(firebase_uid: str, db: Session = Depends(get_db)):
             for r in risk_infos
         ]
 
+        # Write streak-risk notifications (one per at-risk habit, deduped)
+        try:
+            for risk in risk_infos:
+                if risk.days_missed == 2:  # Only on day 2 to avoid spam
+                    notif_svc.create(
+                        user_id=user.id,
+                        notification_type="streak_risk",
+                        title=f"⚠️ Streak at risk: {risk.title}",
+                        message=f"You missed '{risk.title}' for {risk.days_missed} days. Act now!",
+                        emoji="⚠️",
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to write risk notifications: {e}")
+
+        # ── Badge Progress ───────────────────────────────────────
+        raw_progress = badge_service.get_badge_progress(user.id)
+        badge_progress = [
+            BadgeProgress(**p) for p in raw_progress
+        ]
+
+        # ── Unread notification count ────────────────────────────
+        unread_count = notif_svc.get_unread_count(user.id)
+
         return UserProgress(
             total_habits=len(habits),
             total_completed_last_30d=total_completed_30d,
@@ -208,9 +248,11 @@ def get_user_progress(firebase_uid: str, db: Session = Depends(get_db)):
             average_streak=avg_streak,
             consistency_score=consistency,
             ai_insight=ai_insight,
+            unread_notifications=unread_count,
             habits=habit_progress_list,
             reminders=reminders,
             streak_risks=streak_risks,
+            badge_progress=badge_progress,
         )
 
     except HTTPException:

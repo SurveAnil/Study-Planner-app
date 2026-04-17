@@ -18,19 +18,68 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Track your daily habits and build streaks.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="habit_tracker_app">
+  <meta name="apple-mobile-web-app-title" content="Habit Tracker">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>habit_tracker_app</title>
+  <title>Habit Tracker</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- ── Browser Push Notification Bridge ─────────────────────── -->
+  <script>
+    /**
+     * Request browser notification permission.
+     * Returns promise resolving to "granted" | "denied" | "default".
+     */
+    function requestNotificationPermission() {
+      if (!('Notification' in window)) {
+        return Promise.resolve('not_supported');
+      }
+      return Notification.requestPermission();
+    }
+
+    /**
+     * Show a real OS-level browser notification.
+     * Called from Flutter via dart:js interop.
+     */
+    function showBrowserNotification(title, body, icon) {
+      if (!('Notification' in window)) return;
+      var effectiveIcon = icon || '/icons/Icon-192.png';
+
+      if (Notification.permission === 'granted') {
+        var n = new Notification(title, {
+          body: body,
+          icon: effectiveIcon,
+          badge: effectiveIcon,
+          tag: 'habit-tracker',          // Replaces previous notification with same tag
+          renotify: false,
+        });
+        // Auto-close after 6 seconds
+        setTimeout(function() { n.close(); }, 6000);
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(function(permission) {
+          if (permission === 'granted') {
+            showBrowserNotification(title, body, icon);
+          }
+        });
+      }
+    }
+
+    /**
+     * Get current notification permission status.
+     */
+    function getNotificationPermission() {
+      if (!('Notification' in window)) return 'not_supported';
+      return Notification.permission;
+    }
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

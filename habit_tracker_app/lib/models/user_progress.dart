@@ -79,6 +79,42 @@ class StreakRisk {
   }
 }
 
+/// Progress toward a specific badge — drives "5/7 days → 🔥" motivational UI.
+class BadgeProgress {
+  final String badgeType;
+  final String badgeName;
+  final String badgeEmoji;
+  final int currentValue;
+  final int targetValue;
+  final double percentage;
+  final bool isEarned;
+  final String hint;
+
+  BadgeProgress({
+    required this.badgeType,
+    required this.badgeName,
+    required this.badgeEmoji,
+    required this.currentValue,
+    required this.targetValue,
+    required this.percentage,
+    required this.isEarned,
+    required this.hint,
+  });
+
+  factory BadgeProgress.fromJson(Map<String, dynamic> json) {
+    return BadgeProgress(
+      badgeType: json['badge_type'] ?? '',
+      badgeName: json['badge_name'] ?? '',
+      badgeEmoji: json['badge_emoji'] ?? '🏆',
+      currentValue: json['current_value'] ?? 0,
+      targetValue: json['target_value'] ?? 1,
+      percentage: (json['percentage'] ?? 0.0).toDouble(),
+      isEarned: json['is_earned'] ?? false,
+      hint: json['hint'] ?? '',
+    );
+  }
+}
+
 /// Aggregated user progress data from GET /api/users/{uid}/progress.
 class UserProgress {
   final int totalHabits;
@@ -87,9 +123,11 @@ class UserProgress {
   final double averageStreak;
   final double consistencyScore;
   final String aiInsight;
+  final int unreadNotifications;
   final List<HabitProgress> habits;
   final List<MissedHabitReminder> reminders;
   final List<StreakRisk> streakRisks;
+  final List<BadgeProgress> badgeProgress;
 
   UserProgress({
     required this.totalHabits,
@@ -98,9 +136,11 @@ class UserProgress {
     required this.averageStreak,
     required this.consistencyScore,
     required this.aiInsight,
+    required this.unreadNotifications,
     required this.habits,
     required this.reminders,
     required this.streakRisks,
+    required this.badgeProgress,
   });
 
   factory UserProgress.fromJson(Map<String, dynamic> json) {
@@ -111,6 +151,7 @@ class UserProgress {
       averageStreak: (json['average_streak'] ?? 0.0).toDouble(),
       consistencyScore: (json['consistency_score'] ?? 0.0).toDouble(),
       aiInsight: json['ai_insight'] ?? '',
+      unreadNotifications: json['unread_notifications'] ?? 0,
       habits: (json['habits'] as List<dynamic>?)
               ?.map((h) => HabitProgress.fromJson(h as Map<String, dynamic>))
               .toList() ??
@@ -121,6 +162,10 @@ class UserProgress {
           [],
       streakRisks: (json['streak_risks'] as List<dynamic>?)
               ?.map((r) => StreakRisk.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
+      badgeProgress: (json['badge_progress'] as List<dynamic>?)
+              ?.map((b) => BadgeProgress.fromJson(b as Map<String, dynamic>))
               .toList() ??
           [],
     );

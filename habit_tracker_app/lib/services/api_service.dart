@@ -4,6 +4,7 @@ import '../models/habit.dart';
 import '../models/user.dart';
 import '../models/user_progress.dart';
 import '../models/badge_model.dart';
+import '../models/notification_model.dart';
 
 class ApiService {
   final String baseUrl = 'https://habit-tracker-api-7w4e.onrender.com/api';
@@ -196,5 +197,38 @@ class ApiService {
     } else {
       throw Exception('Failed to check badges: ${response.statusCode}');
     }
+  }
+
+  // ── Notifications ───────────────────────────────────────────────────
+
+  /// Fetch notification inbox for the user.
+  Future<NotificationListResponse> getNotifications(String firebaseUid) async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/users/$firebaseUid/notifications'))
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return NotificationListResponse.fromJson(
+          json.decode(response.body) as Map<String, dynamic>);
+    } else {
+      throw Exception('Failed to fetch notifications: ${response.statusCode}');
+    }
+  }
+
+  /// Mark a single notification as read.
+  Future<void> markNotificationRead(
+      String firebaseUid, int notificationId) async {
+    await http
+        .patch(Uri.parse(
+            '$baseUrl/users/$firebaseUid/notifications/$notificationId/read'))
+        .timeout(const Duration(seconds: 10));
+  }
+
+  /// Mark all notifications as read.
+  Future<void> markAllNotificationsRead(String firebaseUid) async {
+    await http
+        .patch(
+            Uri.parse('$baseUrl/users/$firebaseUid/notifications/read-all'))
+        .timeout(const Duration(seconds: 10));
   }
 }

@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'add_habit_screen.dart';
 import 'badges_screen.dart';
 import 'habit_detail_screen.dart';
+import 'notifications_screen.dart';
 import 'progress_screen.dart';
 import 'login_screen.dart';
 
@@ -32,6 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Set<int> _markedTodayIds = {};
   final Set<int> _atRiskHabitIds = {};
   bool _riskBannerShown = false;
+  int _unreadNotifications = 0;
   late AnimationController _pulseController;
 
   @override
@@ -42,6 +44,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
     _loadHabits();
+    // Request browser push permission on first load
+    NotificationService.requestPushPermission();
   }
 
   @override
@@ -78,13 +82,16 @@ class _DashboardScreenState extends State<DashboardScreen>
   /// Fetch streak risk data from the progress API to highlight at-risk habits.
   Future<void> _loadStreakRisks() async {
     try {
-      final progress = await _apiService.getUserProgress(widget.user.firebaseUid);
+      final progress = await _apiService.getUserProgress(
+        widget.user.firebaseUid,
+      );
       if (mounted) {
         setState(() {
           _atRiskHabitIds.clear();
           for (final risk in progress.streakRisks) {
             _atRiskHabitIds.add(risk.habitId);
           }
+          _unreadNotifications = progress.unreadNotifications;
         });
         // Show streak risk banner once per session
         if (!_riskBannerShown && progress.streakRisks.isNotEmpty) {
@@ -105,13 +112,21 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
 
     try {
-      await _apiService.markHabitDone(habit.id, DateTime.now(), 'Logged via app');
+      await _apiService.markHabitDone(
+        habit.id,
+        DateTime.now(),
+        'Logged via app',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: AppTheme.success, size: 20),
+                const Icon(
+                  Icons.check_circle,
+                  color: AppTheme.success,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text('${habit.title} marked done! 🔥'),
               ],
@@ -120,8 +135,6 @@ class _DashboardScreenState extends State<DashboardScreen>
             duration: const Duration(seconds: 2),
           ),
         );
-        // Check for newly unlocked badges (non-blocking)
-        _checkBadgesAfterLog();
       }
     } catch (e) {
       // Rollback on failure
@@ -132,26 +145,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to log: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text(
+              'Failed to log: ${e.toString().replaceAll('Exception: ', '')}',
+            ),
             backgroundColor: AppTheme.danger,
           ),
         );
       }
-    }
-  }
-
-  /// Check for newly earned badges and show toast if any were unlocked.
-  Future<void> _checkBadgesAfterLog() async {
-    try {
-      final result = await _apiService.checkAndAwardBadges(widget.user.firebaseUid);
-      if (mounted && result.newlyEarned.isNotEmpty) {
-        for (final badge in result.newlyEarned) {
-          NotificationService.showBadgeUnlock(context, badge);
-          await Future.delayed(const Duration(milliseconds: 600));
-        }
-      }
-    } catch (_) {
-      // Non-critical
     }
   }
 
@@ -168,14 +168,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildDashboard(),
-          ProgressScreen(user: widget.user),
-          BadgesScreen(user: widget.user),
-        ],
-      ),
+      body: _currentIndex == 0
+          ? _buildDashboard()
+          : ProgressScreen(user: widget.user),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -186,7 +181,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        border: Border(top: BorderSide(color: AppTheme.border.withOpacity(0.3))),
+        border: Border(
+          top: BorderSide(color: AppTheme.border.withOpacity(0.3)),
+        ),
       ),
       child: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -199,10 +196,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           BottomNavigationBarItem(
             icon: Icon(Icons.insights_rounded),
             label: 'Progress',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events_rounded),
-            label: 'Badges',
           ),
         ],
       ),
@@ -218,12 +211,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           _buildAppBar(),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppTheme.primary),
+                  )
                 : _error != null
-                    ? _buildError()
-                    : _habits.isEmpty
-                        ? _buildEmpty()
-                        : _buildContent(),
+                ? _buildError()
+                : _habits.isEmpty
+                ? _buildEmpty()
+                : _buildContent(),
           ),
         ],
       ),
@@ -256,14 +251,62 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
           ),
+          // Notification Bell with unread badge
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_rounded,
+                    color: AppTheme.textSecondary),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          NotificationsScreen(user: widget.user),
+                    ),
+                  ).then((_) => _loadStreakRisks()); // Refresh unread count
+                },
+              ),
+              if (_unreadNotifications > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.danger,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        _unreadNotifications > 9
+                            ? '9+'
+                            : '$_unreadNotifications',
+                        style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           // Refresh
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppTheme.textSecondary),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: AppTheme.textSecondary,
+            ),
             onPressed: _loadHabits,
           ),
           // Logout
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: AppTheme.textSecondary),
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: AppTheme.textSecondary,
+            ),
             onPressed: _signOut,
           ),
         ],
@@ -279,7 +322,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildContent() {
-    final completedToday = _habits.where((h) => _markedTodayIds.contains(h.id)).length;
+    final completedToday = _habits
+        .where((h) => _markedTodayIds.contains(h.id))
+        .length;
 
     // Sort habits: at-risk first, then by streak descending
     final sortedHabits = List<Habit>.from(_habits);
@@ -320,7 +365,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => AddHabitScreen(userId: widget.user.id)),
+                    MaterialPageRoute(
+                      builder: (_) => AddHabitScreen(userId: widget.user.id),
+                    ),
                   ).then((_) => _loadHabits());
                 },
                 icon: const Icon(Icons.add_rounded, size: 18),
@@ -373,7 +420,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     value: progress,
                     strokeWidth: 6,
                     backgroundColor: Colors.white.withOpacity(0.2),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.white,
+                    ),
                   ),
                 ),
                 Text(
@@ -411,14 +460,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                 const SizedBox(height: 8),
                 if (progress >= 1.0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text(
                       '🎉 All done!',
-                      style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
               ],
@@ -434,15 +490,29 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildQuickStats(int completedToday) {
     final avgStreak = _habits.isEmpty
         ? 0
-        : (_habits.fold<int>(0, (sum, h) => sum + h.currentStreak) / _habits.length).round();
+        : (_habits.fold<int>(0, (sum, h) => sum + h.currentStreak) /
+                  _habits.length)
+              .round();
 
     return Row(
       children: [
-        _buildStatChip(Icons.format_list_numbered_rounded, '${_habits.length}', 'Total'),
+        _buildStatChip(
+          Icons.format_list_numbered_rounded,
+          '${_habits.length}',
+          'Total',
+        ),
         const SizedBox(width: 12),
-        _buildStatChip(Icons.check_circle_outline_rounded, '$completedToday', 'Today'),
+        _buildStatChip(
+          Icons.check_circle_outline_rounded,
+          '$completedToday',
+          'Today',
+        ),
         const SizedBox(width: 12),
-        _buildStatChip(Icons.local_fire_department_rounded, '$avgStreak', 'Avg Streak'),
+        _buildStatChip(
+          Icons.local_fire_department_rounded,
+          '$avgStreak',
+          'Avg Streak',
+        ),
       ],
     );
   }
@@ -462,10 +532,20 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(height: 6),
             Text(
               value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
             ),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary,
+              ),
+            ),
           ],
         ),
       ),
@@ -490,7 +570,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => HabitDetailScreen(habit: habit)),
+              MaterialPageRoute(
+                builder: (_) => HabitDetailScreen(habit: habit),
+              ),
             ).then((_) => _loadHabits());
           },
           child: Container(
@@ -498,7 +580,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDone ? AppTheme.primary.withOpacity(0.3) : AppTheme.border.withOpacity(0.5),
+                color: isDone
+                    ? AppTheme.primary.withOpacity(0.3)
+                    : AppTheme.border.withOpacity(0.5),
               ),
             ),
             child: Row(
@@ -508,18 +592,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: habit.currentStreak > 0 ? AppTheme.fireGradient : null,
-                    color: habit.currentStreak == 0 ? AppTheme.surfaceLight : null,
+                    gradient: habit.currentStreak > 0
+                        ? AppTheme.fireGradient
+                        : null,
+                    color: habit.currentStreak == 0
+                        ? AppTheme.surfaceLight
+                        : null,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
                     child: habit.currentStreak > 0
                         ? Text(
                             '🔥${habit.currentStreak}',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
                           )
                         : Icon(
-                            habit.frequency == 'daily' ? Icons.today_rounded : Icons.date_range_rounded,
+                            habit.frequency == 'daily'
+                                ? Icons.today_rounded
+                                : Icons.date_range_rounded,
                             color: AppTheme.textSecondary,
                             size: 22,
                           ),
@@ -537,8 +631,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: isDone ? AppTheme.textSecondary : AppTheme.textPrimary,
-                          decoration: isDone ? TextDecoration.lineThrough : null,
+                          color: isDone
+                              ? AppTheme.textSecondary
+                              : AppTheme.textPrimary,
+                          decoration: isDone
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -582,7 +680,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                             color: AppTheme.success.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.check_rounded, color: AppTheme.success, size: 24),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            color: AppTheme.success,
+                            size: 24,
+                          ),
                         )
                       : Material(
                           key: const ValueKey('todo'),
@@ -594,7 +696,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: const SizedBox(
                               width: 42,
                               height: 42,
-                              child: Icon(Icons.check_rounded, color: AppTheme.primary, size: 24),
+                              child: Icon(
+                                Icons.check_rounded,
+                                color: AppTheme.primary,
+                                size: 24,
+                              ),
                             ),
                           ),
                         ),
@@ -616,7 +722,11 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textColor),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+        ),
       ),
     );
   }
@@ -645,12 +755,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                 color: AppTheme.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.add_task_rounded, size: 40, color: AppTheme.primary),
+              child: const Icon(
+                Icons.add_task_rounded,
+                size: 40,
+                color: AppTheme.primary,
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
               'No habits yet',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -663,7 +781,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => AddHabitScreen(userId: widget.user.id)),
+                  MaterialPageRoute(
+                    builder: (_) => AddHabitScreen(userId: widget.user.id),
+                  ),
                 ).then((_) => _loadHabits());
               },
               icon: const Icon(Icons.add_rounded),
@@ -682,12 +802,19 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: AppTheme.danger),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 48,
+              color: AppTheme.danger,
+            ),
             const SizedBox(height: 16),
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 14,
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
