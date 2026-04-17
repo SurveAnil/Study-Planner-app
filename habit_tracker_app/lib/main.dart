@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,8 +18,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Daily Habit Tracker',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      title: 'Habit Tracker',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
       home: LoginScreen(),
     );
   }

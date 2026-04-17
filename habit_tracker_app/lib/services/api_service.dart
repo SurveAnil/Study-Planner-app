@@ -2,18 +2,20 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/habit.dart';
 import '../models/user.dart';
+import '../models/user_progress.dart';
 
 class ApiService {
-  final String baseUrl =
-      'https://habit-tracker-api-7w4e.onrender.com/api'; // Adjust for your backend URL
+  final String baseUrl = 'https://habit-tracker-api-7w4e.onrender.com/api';
+
+  // ── Habits ──────────────────────────────────────────────────────
 
   Future<List<Habit>> getHabits(int userId) async {
     final response = await http
         .get(Uri.parse('$baseUrl/habits/$userId'))
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode == 200) {
       List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Habit.fromJson(json)).toList();
+      return data.map((j) => Habit.fromJson(j as Map<String, dynamic>)).toList();
     } else {
       throw Exception('Failed to load habits');
     }
@@ -30,10 +32,10 @@ class ApiService {
             'frequency': frequency,
           }),
         )
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200) {
-      return Habit.fromJson(json.decode(response.body));
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Habit.fromJson(json.decode(response.body) as Map<String, dynamic>);
     } else {
       final error =
           json.decode(response.body)['detail'] ?? 'Failed to create habit';
@@ -41,7 +43,9 @@ class ApiService {
     }
   }
 
-  Future<void> markHabitDone(
+  /// Mark a habit as done for a given date.
+  /// Returns the log response JSON map on success.
+  Future<Map<String, dynamic>> markHabitDone(
     int habitId,
     DateTime logDate,
     String? notes,
@@ -51,14 +55,19 @@ class ApiService {
           Uri.parse('$baseUrl/habits/$habitId/log'),
           headers: {'Content-Type': 'application/json'},
           body: json.encode({
-            'log_date': logDate.toIso8601String(),
+            'log_date':
+                '${logDate.year}-${logDate.month.toString().padLeft(2, '0')}-${logDate.day.toString().padLeft(2, '0')}',
             'notes': notes,
           }),
         )
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to log habit');
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      final body = response.body.isNotEmpty ? response.body : '{}';
+      final detail = json.decode(body)['detail'] ?? 'Failed to log habit';
+      throw Exception(detail);
     }
   }
 
@@ -76,7 +85,7 @@ class ApiService {
             if (frequency != null) 'frequency': frequency,
           }),
         )
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw Exception('Failed to update habit');
     }
@@ -85,11 +94,13 @@ class ApiService {
   Future<void> deleteHabit(int habitId) async {
     final response = await http
         .delete(Uri.parse('$baseUrl/habits/$habitId'))
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) {
       throw Exception('Failed to delete habit');
     }
   }
+
+  // ── Users ──────────────────────────────────────────────────────
 
   Future<User?> getUser(String firebaseUid) async {
     try {
@@ -98,10 +109,10 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-        if (decoded == null) return null; // backend returned null body
+        if (decoded == null) return null;
         return User.fromJson(decoded as Map<String, dynamic>);
       } else if (response.statusCode == 404) {
-        return null; // user does not exist yet
+        return null;
       } else {
         throw Exception('Failed to fetch user: ${response.statusCode}');
       }
@@ -133,6 +144,25 @@ class ApiService {
       final body = response.body.isNotEmpty ? response.body : '{}';
       final detail = json.decode(body)['detail'] ?? 'Failed to create user';
       throw Exception(detail);
+    }
+  }
+
+  // ── Progress Analytics ────────────────────────────────────────
+
+  /// Fetch aggregated progress data for a user.
+  Future<UserProgress> getUserProgress(String firebaseUid) async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/users/$firebaseUid/progress'))
+        .timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body);
+      if (decoded == null) {
+        throw Exception('Backend returned empty progress data');
+      }
+      return UserProgress.fromJson(decoded as Map<String, dynamic>);
+    } else {
+      throw Exception('Failed to fetch progress: ${response.statusCode}');
     }
   }
 }

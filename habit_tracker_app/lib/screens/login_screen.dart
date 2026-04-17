@@ -2,39 +2,42 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../models/user.dart';
+import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
   String? _errorMessage;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
-  /// Show an error dialog to the user
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Sign-In Failed'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
-        ],
-      ),
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
     );
+    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
+    _fadeController.forward();
   }
 
-  /// Handle Google Sign-In process with comprehensive error handling
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
   Future<void> _signInWithGoogle() async {
     setState(() {
       _isLoading = true;
@@ -42,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Step 1: Sign in with Google and Firebase
       print('📱 Initiating Google Sign-In...');
       final firebaseUser = await _authService.signInWithGoogle();
 
@@ -52,12 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       print('✅ Firebase authentication successful: ${firebaseUser.email}');
 
-      // Step 2: Check if user exists in backend
       print('🔍 Checking backend user...');
       User? backendUser = await _apiService.getUser(firebaseUser.uid);
 
       if (backendUser == null) {
-        // Step 3: Create user in backend if doesn't exist
         print('👤 Creating new user in backend...');
         backendUser = await _apiService.createUser(
           firebaseUser.displayName ?? 'User',
@@ -71,7 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Step 4: Navigate to dashboard
       print('🚀 Navigating to dashboard...');
       Navigator.pushReplacement(
         context,
@@ -80,7 +79,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } on Exception catch (e) {
-      // Handle authentication errors
       final errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('❌ Sign-in error: $errorMessage');
 
@@ -89,10 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
           _errorMessage = errorMessage;
           _isLoading = false;
         });
-        _showErrorDialog(errorMessage);
       }
     } catch (e) {
-      // Handle unexpected errors
       final errorMessage = 'An unexpected error occurred: $e';
       print('❌ Unexpected error: $errorMessage');
 
@@ -101,7 +97,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _errorMessage = errorMessage;
           _isLoading = false;
         });
-        _showErrorDialog(errorMessage);
       }
     }
   }
@@ -109,120 +104,145 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Daily Habit Tracker'),
-        centerTitle: true,
-        elevation: 0,
-      ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue.shade50, Colors.blue.shade100],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // App Logo/Icon
-                Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blue.shade400,
-                  ),
-                  child: Icon(Icons.trending_up, size: 64, color: Colors.white),
-                ),
-                SizedBox(height: 32),
-                // Title
-                Text(
-                  'Habit Tracker',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade800,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 12),
-                // Subtitle
-                Text(
-                  'Build better habits, one day at a time',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 48),
-                // Error Message (if any)
-                if (_errorMessage != null)
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade100,
-                      border: Border.all(color: Colors.red.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline, color: Colors.red.shade700),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: TextStyle(color: Colors.red.shade700),
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(color: AppTheme.bg),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Icon
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primary.withOpacity(0.4),
+                            blurRadius: 30,
+                            offset: const Offset(0, 10),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_errorMessage != null) SizedBox(height: 24),
-                // Google Sign-In Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _signInWithGoogle,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade600,
-                      disabledBackgroundColor: Colors.grey.shade400,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        ],
                       ),
-                    ),
-                    icon: _isLoading
-                        ? SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : Icon(Icons.login),
-                    label: Text(
-                      _isLoading ? 'Signing In...' : 'Sign in with Google',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      child: const Icon(
+                        Icons.track_changes_rounded,
+                        size: 48,
                         color: Colors.white,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 36),
+
+                    // Title
+                    const Text(
+                      'Habit Tracker',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Build better habits.\nTrack your progress. Stay consistent.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppTheme.textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+
+                    // Error message
+                    if (_errorMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.danger.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: AppTheme.danger, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(color: AppTheme.danger, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    // Sign in button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black87,
+                          disabledBackgroundColor: AppTheme.surfaceLight,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppTheme.primary,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.network(
+                                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                                    width: 22,
+                                    height: 22,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.login_rounded, size: 22),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Continue with Google',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Footer
+                    Text(
+                      'Powered by Firebase · Secure authentication',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 24),
-                // Info Text
-                Text(
-                  'Secure authentication powered by Firebase',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              ),
             ),
           ),
         ),

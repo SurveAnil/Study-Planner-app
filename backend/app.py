@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.db_connection import engine, Base
 from models import user, habit, daily_log  # Must import before create_all
-from routes import habit_routes, user_routes
+from routes import habit_routes, user_routes, progress_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,7 +25,12 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down.")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Habit Tracker API",
+    description="Backend API for the Daily Habit Tracker application",
+    version="2.0.0",
+    lifespan=lifespan,
+)
 
 # Add CORS middleware to allow requests from Flutter Web
 app.add_middleware(
@@ -38,11 +43,12 @@ app.add_middleware(
 
 app.include_router(habit_routes.router, prefix="/api", tags=["habits"])
 app.include_router(user_routes.router, prefix="/api", tags=["users"])
+app.include_router(progress_routes.router, prefix="/api", tags=["progress"])
 
 
 @app.get("/")
 def read_root():
-    return {"message": "Daily Habit Tracker API is running"}
+    return {"message": "Daily Habit Tracker API is running", "version": "2.0.0"}
 
 
 if __name__ == "__main__":
