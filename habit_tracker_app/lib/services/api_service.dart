@@ -14,7 +14,7 @@ class ApiService {
   Future<List<Habit>> getHabits(int userId) async {
     final response = await http
         .get(Uri.parse('$baseUrl/habits/$userId'))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
     if (response.statusCode == 200) {
       List<dynamic> data = json.decode(response.body);
       return data.map((j) => Habit.fromJson(j as Map<String, dynamic>)).toList();
@@ -34,7 +34,7 @@ class ApiService {
             'frequency': frequency,
           }),
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return Habit.fromJson(json.decode(response.body) as Map<String, dynamic>);
@@ -62,7 +62,7 @@ class ApiService {
             'notes': notes,
           }),
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return json.decode(response.body) as Map<String, dynamic>;
@@ -87,7 +87,7 @@ class ApiService {
             if (frequency != null) 'frequency': frequency,
           }),
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
     if (response.statusCode != 200) {
       throw Exception('Failed to update habit');
     }
@@ -96,7 +96,7 @@ class ApiService {
   Future<void> deleteHabit(int habitId) async {
     final response = await http
         .delete(Uri.parse('$baseUrl/habits/$habitId'))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
     if (response.statusCode != 200) {
       throw Exception('Failed to delete habit');
     }
@@ -108,7 +108,7 @@ class ApiService {
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/users/$firebaseUid'))
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
         if (decoded == null) return null;
@@ -134,7 +134,7 @@ class ApiService {
             'firebase_uid': firebaseUid,
           }),
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final decoded = json.decode(response.body);
@@ -155,7 +155,7 @@ class ApiService {
   Future<UserProgress> getUserProgress(String firebaseUid) async {
     final response = await http
         .get(Uri.parse('$baseUrl/users/$firebaseUid/progress'))
-        .timeout(const Duration(seconds: 20));
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body);
@@ -174,7 +174,7 @@ class ApiService {
   Future<BadgeListResponse> getBadges(String firebaseUid) async {
     final response = await http
         .get(Uri.parse('$baseUrl/users/$firebaseUid/badges'))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode == 200) {
       return BadgeListResponse.fromJson(
@@ -189,7 +189,7 @@ class ApiService {
   Future<CheckBadgesResponse> checkAndAwardBadges(String firebaseUid) async {
     final response = await http
         .post(Uri.parse('$baseUrl/users/$firebaseUid/badges/check'))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode == 200) {
       return CheckBadgesResponse.fromJson(
@@ -205,7 +205,7 @@ class ApiService {
   Future<NotificationListResponse> getNotifications(String firebaseUid) async {
     final response = await http
         .get(Uri.parse('$baseUrl/users/$firebaseUid/notifications'))
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode == 200) {
       return NotificationListResponse.fromJson(
@@ -221,7 +221,7 @@ class ApiService {
     await http
         .patch(Uri.parse(
             '$baseUrl/users/$firebaseUid/notifications/$notificationId/read'))
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 60));
   }
 
   /// Mark all notifications as read.
@@ -229,6 +229,6 @@ class ApiService {
     await http
         .patch(
             Uri.parse('$baseUrl/users/$firebaseUid/notifications/read-all'))
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 60));
   }
 }
